@@ -268,19 +268,19 @@ void CreateBinaryTree() {
   free(binary);
   free(parent_node);
 }
-
+//从词的文本构建词库
 void LearnVocabFromTrainFile() {
   char word[MAX_STRING], eof = 0;
   FILE *fin;
   long long a, i, wc = 0;
-  for (a = 0; a < vocab_hash_size; a++) vocab_hash[a] = -1;
+  for (a = 0; a < vocab_hash_size; a++) vocab_hash[a] = -1;//初始化
   fin = fopen(train_file, "rb");
   if (fin == NULL) {
     printf("ERROR: training data file not found!\n");
     exit(1);
   }
   vocab_size = 0;
-  AddWordToVocab((char *)"</s>");
+  AddWordToVocab((char *)"</s>");//把分隔符加入词库
   while (1) {
     ReadWord(word, fin, &eof);
     if (eof) break;
@@ -291,11 +291,17 @@ void LearnVocabFromTrainFile() {
       fflush(stdout);
       wc = 0;
     }
-    i = SearchVocab(word);
+    i = SearchVocab(word);//如果存在，返回该词的索引值，不存在，则返回-1
     if (i == -1) {
       a = AddWordToVocab(word);
       vocab[a].cn = 1;
     } else vocab[i].cn++;
+    /*
+      当出现“vocab_size > vocab_hash_size * 0.7”时，需要对低频词进行处理。
+      其中，vocab_size表示的是目前词库中词的个数，vocab_hash_size表示的是初始设定的hash表的大小。
+      在处理低频词的过程中，通过参数“min_reduce”来控制，若词出现的次数小于等于该值时，则从词库中删除该词。
+      在删除了低频词后，需要重新对词库中的词进行hash值的计算。
+    */
     if (vocab_size > vocab_hash_size * 0.7) ReduceVocab();
   }
   SortVocab();
@@ -314,6 +320,7 @@ void SaveVocab() {
   fclose(fo);
 }
 
+//直接读取词库
 void ReadVocab() {
   long long a, i = 0;
   char c, eof = 0;
@@ -705,7 +712,9 @@ int main(int argc, char **argv) {
   if ((i = ArgPos((char *)"-classes", argc, argv)) > 0) classes = atoi(argv[i + 1]);
   vocab = (struct vocab_word *)calloc(vocab_max_size, sizeof(struct vocab_word));
   vocab_hash = (int *)calloc(vocab_hash_size, sizeof(int));
-  expTable = (real *)malloc((EXP_TABLE_SIZE + 1) * sizeof(real));
+  expTable = (real *)malloc((EXP_TABLE_SIZE + 1) * sizeof(real));//使用近似的方式去计算sigmod函数，将区间[−6,6]（设置的参数MAX_EXP为6）
+                                                                  //等距离划分成EXP_TABLE_SIZE等份，并将每个区间中的sigmoid值计算好
+                                                                  //存入到数组expTable中，需要使用时，直接从数组中查找。
   for (i = 0; i < EXP_TABLE_SIZE; i++) {
     expTable[i] = exp((i / (real)EXP_TABLE_SIZE * 2 - 1) * MAX_EXP); // Precompute the exp() table
     expTable[i] = expTable[i] / (expTable[i] + 1);                   // Precompute f(x) = x / (x + 1)
